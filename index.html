@@ -140,8 +140,20 @@ limDe=s=>{const L=sc(s).map(c=>(tierOf(s,c)||{}).d||0);return!L.length||L.includ
 usadas=(s,M)=>db.asist.filter(a=>a.sid===s.id&&a.date.slice(0,7)===M).length,
 pTiers=t=>String(t||"").split(/[,;\n]+/).map(x=>x.trim().match(/^(?:(\d+)\s*=\s*)?(\d+(?:[.,]\d+)?)$/)).filter(Boolean).map(m=>({d:+(m[1]||0),p:parseFloat(m[2].replace(",","."))})),
 pHs=t=>String(t||"").split(/[,;]+/).map(x=>x.trim().match(/^(\d{1,2}):(\d{2})(?:\s*[-–]\s*(\d{1,2}):(\d{2}))?$/)).filter(Boolean).map(m=>[m[1].padStart(2,"0")+":"+m[2],m[3]?m[3].padStart(2,"0")+":"+m[4]:""]).sort((a,b)=>a[0].localeCompare(b[0])),
-crD=o=>{const t=parseInt(String(o.id).slice(0,-3),36);return t>1e11?iso(new Date(t)):"0"},faltas=()=>{const t=today(),out=[];db.socios.filter(s=>!s.off&&sc(s).length).forEach(s=>{const ds=new Set();sc(s).forEach(c=>dd(c).forEach(d=>ds.add(d)));let n=0;for(let i=1;i<=35;i++){const d0=new Date(t+"T12:00:00");d0.setDate(d0.getDate()-i);const d=iso(d0);if(d<=crD(s)||d<(s.start||"0")+"-01")break;if(!ds.has((d0.getDay()+6)%7))continue;if(db.asist.some(a=>a.sid===s.id&&a.date===d))break;n++}if(n>2)out.push({s,n})});return out},
-falH=()=>faltas().map(x=>`<div class="c row" style="border-left:4px solid #e53935" onclick="tab='soc';openS='${x.s.id}';render();scrollTo(0,0)"><div><b>⚠ ${esc(x.s.name)}</b><div class="mu">Faltó ${x.n} clases seguidas</div></div></div>`).join(""),
+semAct=()=>{const d=new Date(today()+"T12:00:00");d.setDate(d.getDate()-((d.getDay()+6)%7));return iso(d)},crD=o=>{const t=parseInt(String(o.id).slice(0,-3),36);return t>1e11?iso(new Date(t)):"0"},faltas=()=>{const out=[],H=today(),T=new Date(H+"T12:00:00"),lunes=new Date(T);lunes.setDate(T.getDate()-((T.getDay()+6)%7));
+ db.socios.filter(s=>!s.off&&sc(s).length).forEach(s=>{const ds=new Set();sc(s).forEach(c=>dd(c).forEach(d=>ds.add(d)));if(!ds.size)return;
+  if(!db.asist.some(x=>x.sid===s.id))return;
+  const a=crD(s)||"0",b=s.start?s.start+"-01":"0",desde=a>b?a:b;let w=0,cls=0;
+  for(let k=1;k<=12;k++){const mon=new Date(lunes);mon.setDate(lunes.getDate()-7*k);const fin=new Date(mon);fin.setDate(mon.getDate()+6);const wi=iso(mon),fi=iso(fin);
+   if(fi>=H)continue;if(wi<desde)break;
+   const dias=[];for(let i=0;i<7;i++)if(ds.has(i)){const x=new Date(mon);x.setDate(mon.getDate()+i);dias.push(iso(x))}
+   if(!dias.length)break;
+   if(db.asist.some(x=>x.sid===s.id&&x.date>=wi&&x.date<=fi))break;
+   if(!w)cls=dias.length;w++}
+  if(w)out.push({s,w,n:cls})});
+ return out.sort((x,y)=>y.w-x.w)},
+falH=()=>faltas().filter(x=>((db.falLeida||{})[x.s.id]||"")!==semAct()).map(x=>`<div class="c row" style="border-left:4px solid #e53935" onclick="tab='soc';openS='${x.s.id}';render();scrollTo(0,0)"><div><b>⚠ ${esc(x.s.name)}</b><div class="mu">${x.w===1?x.n===1?"No vino a su clase de la semana pasada":`No vino a ninguna de sus ${x.n} clases la semana pasada`:`Hace ${x.w} semanas que no viene a ninguna clase`}</div></div><button class="b s w" title="Marcar como leído" aria-label="Marcar como leído" onclick="leerFal('${x.s.id}',event)">✅</button></div>`).join(""),
+leerFal=(id,e)=>{if(e)e.stopPropagation();db.falLeida=db.falLeida||{};db.falLeida[id]=semAct();save();render()},
 logoH=()=>(db.cfg.logo?`<img src="${db.cfg.logo}" style="height:40px;border-radius:8px;vertical-align:middle;margin-right:10px">`:"")+esc(db.cfg.gym);
 function setLogo(i){const f=i.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,256/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);db.cfg.logo=c.toDataURL("image/png");save();render()};im.src=r.result};r.readAsDataURL(f);i.value=""}
 const DOPT=()=>[[0,"Sin límite de clases"],...[1,2,3,4,5,6,7].map(n=>[n*4,n+(n>1?" días":" día")+" por semana ("+n*4+" al mes)"])],
