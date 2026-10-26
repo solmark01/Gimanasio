@@ -26,6 +26,19 @@ nav div{display:flex;width:100%;max-width:480px;overflow-x:auto}nav button{flex:
 .cal .d{background:var(--card);border:1px solid var(--bd)}.cal .t{border-color:var(--ac)}.cal .sel{background:var(--ac);color:#fff}.cal .has::after{content:"•";display:block;line-height:4px;font-size:16px}
 .bar{height:8px;background:var(--acl);border-radius:8px;overflow:hidden;margin:8px 0}.bar i{display:block;height:100%;background:var(--ac)}
 .bk{background:none;border:0;color:var(--ac);padding:0 0 8px;font-weight:600}
+.sch{border:1px solid var(--bd);border-radius:14px;background:var(--card);overflow:hidden;margin-bottom:12px}
+.sch .slot{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border-top:1px solid var(--bd)}
+.sch .slot:first-child{border-top:0}
+.sch .hh{font-size:13px;font-weight:700;color:var(--mu);font-variant-numeric:tabular-nums;padding-top:2px}
+.sch .slot.free .hh{color:var(--ac)}
+.sch .slot.busy{background:var(--acl)}
+.sch .freeTxt{display:inline-block;color:var(--mu);font-size:13px;padding-top:2px}
+.sch .plus{width:34px;height:34px;border:0;border-radius:9px;background:var(--ac);color:#fff;font-size:21px;line-height:1;font-weight:700}
+.sch .ev+.ev{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd)}
+.sch .ev b{font-size:15px}
+.sch .acts{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.sch .acts button{background:var(--card);border:1px solid var(--bd);color:var(--ac);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:600}
+.sch .acts .del{color:var(--rd)}
 </style></head><body>
 <div id="app"></div>
 <nav><div id="nav"></div></nav>
@@ -203,10 +216,17 @@ function asi(){const ad=db.asist.filter(a=>a.date===today()).sort((a,b)=>b.in.lo
  <h2>Presentes hoy (${ad.length})</h2>${ad.map(a=>`<div class="c row"><div><b>${esc(gs(a.sid).name)}</b><div class="mu">Entró ${a.in}${a.cl&&cl_(a.cl)?" · "+esc(cl_(a.cl).n):""}</div></div></div>`).join("")||'<p class="mu">Todavía no hay entradas hoy.</p>'}`}
 function gymOut(id){const a=db.asist.find(x=>x.id===id);if(a){a.out=nowT();save();render()}}
 const DN=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
-function agenda(){const C=db.clases.filter(c=>dd(c).includes(cd)).sort((a,b)=>hrs(a)[0][0].localeCompare(hrs(b)[0][0]));
- return`<h1>Clases</h1><div class="cal">${"LMXJVSD".split("").map((x,i)=>`<span class="d ${i===cd?"sel":""}" onclick="cd=${i};render()">${x}</span>`).join("")}</div><h2>${DN[cd]}</h2>${C.map(c=>`<div class="c"><div><b>${hT(c)}</b> · ${esc(c.n)}<div class="mu">${pn(c.p)?"👤 "+esc(pn(c.p))+" · ":""}${prT(c)?prT(c)+" · ":""}${db.socios.filter(s=>(s.cls||[]).includes(c.id)&&!s.off).length} alumnos</div></div><div class="row" style="margin-top:8px;gap:8px;justify-content:flex-start"><button class="b s w" onclick="claForm('${c.id}')">Editar</button><button class="b s w" onclick="ac='${c.id}';cv='s';render()">Asistencia</button><button class="b s w" onclick="delCla('${c.id}')">✕</button></div></div>`).join("")||'<p class="mu">Sin clases este día.</p>'}<button class="b" onclick="claForm()">+ Agregar clase</button>`}
+const HRS_DIA=[7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24];
+const hLbl=h=>String(h%24).padStart(2,"0")+":00";
+function dayEvs(day){const out=[];db.clases.filter(c=>dd(c).includes(day)).forEach(c=>hrs(c).forEach(([a,b])=>{if(!a)return;const[ah,am]=a.split(":").map(Number);let s=ah*60+(am||0),e=null;if(b){const[bh,bm]=b.split(":").map(Number);e=bh*60+(bm||0);if(e<=s)e+=1440}out.push({c,a,b,s,e})}));return out}
+const evOver=(e,h)=>e.e!=null?e.s<h*60+60&&e.e>h*60:e.s>=h*60&&e.s<h*60+60;
+function evCard(e){const n=db.socios.filter(s=>(s.cls||[]).includes(e.c.id)&&!s.off).length;
+ return`<div class="ev"><b>${esc(e.c.n)}</b><div class="mu">${e.a}${e.b?"–"+e.b:""}${pn(e.c.p)?" · 👤 "+esc(pn(e.c.p)):""} · ${n} alumno${n===1?"":"s"}</div><div class="acts"><button onclick="claForm('${e.c.id}')">Editar</button><button onclick="ac='${e.c.id}';cv='s';render()">Asistencia</button><button class="del" onclick="delCla('${e.c.id}')">✕</button></div></div>`}
+function agenda(){const E=dayEvs(cd),base=HRS_DIA.map(h=>[h,E.filter(e=>evOver(e,h))]),free=base.filter(x=>!x[1].length).length,early=E.filter(e=>e.e!=null?e.e<=7*60:e.s<7*60),noT=db.clases.filter(c=>dd(c).includes(cd)&&hrs(c).every(x=>!x[0]));
+ return`<h1>Clases</h1><div class="cal">${"LMXJVSD".split("").map((x,i)=>`<span class="d ${i===cd?"sel":""}" onclick="cd=${i};render()">${x}</span>`).join("")}</div><div class="row" style="margin:12px 0 8px"><h2 style="margin:0">${DN[cd]}</h2><span class="mu">${free} de ${base.length} horarios libres</span></div><div class="sch">${base.map(([h,evs])=>`<div class="slot ${evs.length?"busy":"free"}"><div class="hh">${hLbl(h)}</div><div>${evs.length?evs.map(evCard).join(""):'<span class="freeTxt">Libre</span>'}</div>${evs.length?"":`<button class="plus" aria-label="Agregar clase a las ${hLbl(h)}" onclick="claForm(null,null,'${hLbl(h)}')">+</button>`}</div>`).join("")}</div>${early.length?`<h2>Antes de las 07:00</h2><div class="sch">${early.map(e=>`<div class="slot busy"><div class="hh">${e.a}</div><div>${evCard(e)}</div><span></span></div>`).join("")}</div>`:""}${noT.length?`<h2>Sin horario definido</h2>`+noT.map(c=>`<div class="c row"><div><b>${esc(c.n)}</b><div class="mu">${pn(c.p)?"👤 "+esc(pn(c.p)):""}</div></div><button class="b s w" onclick="claForm('${c.id}')">Editar</button></div>`).join(""):""}<button class="b" onclick="claForm()">+ Agregar clase</button>`}
 function cla(){return`<div class="row" style="margin-bottom:10px"><button class="b ${cv==="a"?"":"s"} w" onclick="cv='a';render()">Agenda</button><button class="b ${cv==="s"?"":"s"} w" onclick="cv='s';render()">Asistencia</button></div>`+(cv==="s"?asi():agenda())}
-function claForm(id,pid){const c=db.clases.find(x=>x.id===id)||{};form(id?"Editar clase":"Nueva clase",[{k:"d",l:"Días en que se da",dy:1,v:(c.id?dd(c):[cd]).join(",")},{k:"hs",dr:"hs",l:"Horarios (podés agregar varios)",v:c.id?hrs(c).map(x=>x[0]+(x[1]?"-"+x[1]:"")).join(", "):""},{k:"n",l:"Clase / actividad",v:c.n},{k:"p",l:"Profesor",o:[["","Sin asignar"],...db.profs.filter(p=>!p.off).map(p=>[p.id,p.name])],v:c.p||pid},{k:"pl",dr:"pl",l:"Precios (podés agregar varios planes)",v:tiers(c).map(t=>(t.d?t.d+"=":"")+t.p).join(", ")}],v=>{
+const nextH=t=>{const[h,m]=t.split(":").map(Number);return String((h+1)%24).padStart(2,"0")+":"+String(m||0).padStart(2,"0")};
+function claForm(id,pid,slot){const c=db.clases.find(x=>x.id===id)||{},hs0=slot?slot+"-"+nextH(slot):"";form(id?"Editar clase":(slot?"Nueva clase · "+slot:"Nueva clase"),[{k:"d",l:"Días en que se da",dy:1,v:(c.id?dd(c):[cd]).join(",")},{k:"hs",dr:"hs",l:"Horarios (podés agregar varios)",v:c.id?hrs(c).map(x=>x[0]+(x[1]?"-"+x[1]:"")).join(", "):hs0},{k:"n",l:"Clase / actividad",v:c.n},{k:"p",l:"Profesor",o:[["","Sin asignar"],...db.profs.filter(p=>!p.off).map(p=>[p.id,p.name])],v:c.p||pid},{k:"pl",dr:"pl",l:"Precios (podés agregar varios planes)",v:tiers(c).map(t=>(t.d?t.d+"=":"")+t.p).join(", ")}],v=>{
  const hs=pHs(v.hs);if(!hs.length||!v.n||!v.d){alert("Completá los días, al menos un horario y el nombre de la clase");return false}
  const o={ds:v.d.split(",").filter(x=>x!=="").map(Number),hs,t:hs[0][0],e:hs[0][1],n:v.n,p:v.p,pl:pTiers(v.pl),pr:0};if(id)Object.assign(c,o);else db.clases.push(Object.assign(o,{id:uid()}));cd=o.ds[0]});const hh=document.body.lastElementChild,bn=document.createElement("button");bn.className="b s";bn.style.marginBottom="10px";bn.textContent="+ Nuevo profesor";bn.onclick=()=>proForm(null,p=>{const s=hh.querySelector("#f_p");s.add(new Option(p.name,p.id));s.value=p.id});hh.querySelector("#f_p").after(bn)}
 function delCla(id){if(confirm("¿Quitar esta clase de la agenda?")){db.clases=db.clases.filter(c=>c.id!==id);db.socios.forEach(s=>s.cls=(s.cls||[]).filter(x=>x!==id));save();render()}}
